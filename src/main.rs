@@ -3,29 +3,19 @@ use std::fs::File;
 use std::io::BufWriter;
 
 use mysql::prelude::*;
-use mysql::{self, OptsBuilder};
+use mysql::Pool;
 use std::env;
 
+mod database {
+    pub mod config;
+}
+use database::config::get_database_url;
+
 fn main() {
-    let server = "localhost";
-    let database = "test";
-    let username = "root";
-    let password = "";
-    let port = 3306; // 3306 otherwise 3307 for ssh tunnel
+    let pool = create_mysql_pool().expect("Failed to create MySQL connection pool");
+    let mut conn = pool.get_conn().expect("Failed to get MySQL connection");
 
-    // Build options for the database connection
-    let opts = OptsBuilder::new()
-        .ip_or_hostname(Some(server))
-        .db_name(Some(database))
-        .user(Some(username))
-        .pass(Some(password))
-        .tcp_port(port)
-        .ssl_opts(None);
-
-    // Connect to the database
-    let pool = mysql::Pool::new(mysql::Opts::from(opts)).unwrap();
-    let mut conn = pool.get_conn().unwrap();
-
+    /* This is if you want to pass argument for the query to be more dynamic */
     let args: Vec<String> = env::args().collect();
 
     // Check if an argument is provided
@@ -37,16 +27,20 @@ fn main() {
     // Parse the ID from the command line argument
     let id: i32 = args[1].parse().expect("Invalid ID");
 
-    let query_str = format!("SELECT id, name, role FROM users WHERE id = {}", id);
+    let query_str = format!("SELECT id, name, role FROM userse WHERE id = {}", id);
 
     let result: Vec<(i32, String, String)> = conn
         .query_map(query_str, |(id, name, role)| (id, name, role))
         .unwrap();
 
-    //This is if you want to pass a single argument in the query
+    /* This is if you want to pass argument for the query to be more dynamic */
+
+    /* This is if you want to have static query */
 
     //let result: Vec<(String, String, String)> = conn
-    //        .query("SELECT id, client, quarter FROM taxable_wages").unwrap();
+    //        .query("SELECT id, name, role FROM users").unwrap();
+
+    /* This is if you want to have static query */
 
     const WIDTH: f64 = 210.0;
     const HEIGHT: f64 = 297.0;
@@ -101,4 +95,10 @@ fn add_text(
     //current_layer.set_character_spacing(3.0);
     current_layer.write_text(text, font);
     current_layer.end_text_section();
+}
+
+fn create_mysql_pool() -> Result<Pool, mysql::Error> {
+    let url = get_database_url();
+    let opts = mysql::Opts::from_url(&url)?;
+    Pool::new(opts)
 }
